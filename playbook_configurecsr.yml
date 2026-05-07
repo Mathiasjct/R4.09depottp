@@ -1,0 +1,94 @@
+---
+- name: Configuration CSR1000
+  hosts: csr1000
+  gather_facts: no
+  vars:
+    ansible_command_timeout: 120
+    ansible_connect_timeout: 60
+
+  tasks:
+    # ── 1.1 Interfaces ──────────────────────────────────────────────
+    - name: 1.1 Config GigabitEthernet1 (WAN - DHCP)
+      cisco.ios.ios_config:
+        lines:
+          - ip address dhcp
+          - description WAN
+          - no shutdown
+        parents: interface GigabitEthernet1
+
+    - name: 1.1 Config GigabitEthernet2 (LAN_ENTREPRISE)
+      cisco.ios.ios_config:
+        lines:
+          - ip address 192.168.2.1 255.255.255.0
+          - description LAN_ENTREPRISE
+          - no shutdown
+        parents: interface GigabitEthernet2
+
+    - name: 1.1 Config GigabitEthernet3 (LAN_DMZ)
+      cisco.ios.ios_config:
+        lines:
+          - ip address 192.168.3.1 255.255.255.0
+          - description LAN_DMZ
+          - no shutdown
+        parents: interface GigabitEthernet3
+
+    - name: 1.1 Config GigabitEthernet4 (LAN_ADMIN)
+      cisco.ios.ios_config:
+        lines:
+          - ip address 192.168.4.1 255.255.255.0
+          - description LAN_ADMIN
+          - no shutdown
+        parents: interface GigabitEthernet4
+
+    # ── 1.2 DHCP ────────────────────────────────────────────────────
+    - name: 1.2 Suppression pool DHCP existant
+      cisco.ios.ios_config:
+        lines:
+          - no ip dhcp pool LAN_POOL
+
+    - name: 1.2 Creation pool DHCP
+      cisco.ios.ios_config:
+        lines:
+          - network 192.168.2.0 255.255.255.0
+          - default-router 192.168.2.1
+          - dns-server 8.8.8.8
+        parents: ip dhcp pool LAN_POOL
+
+    # ── 1.3 NAT dynamique ───────────────────────────────────────────
+    - name: 1.3 NAT outside sur GigabitEthernet1
+      cisco.ios.ios_config:
+        lines:
+          - ip nat outside
+        parents: interface GigabitEthernet1
+
+    - name: 1.3 NAT inside sur GigabitEthernet 2/3/4
+      cisco.ios.ios_config:
+        lines:
+          - ip nat inside
+        parents: "interface {{ item }}"
+      loop:
+        - GigabitEthernet2
+        - GigabitEthernet3
+        - GigabitEthernet4
+
+    - name: 1.3 ACL et PAT dynamique
+      cisco.ios.ios_config:
+        lines:
+          - access-list 1 permit 192.168.2.0 0.0.0.255
+          - ip nat inside source list 1 interface GigabitEthernet1 overload
+
+    # ── 1.4 PAT statique par port ───────────────────────────────────
+    - name: 1.4 PAT port 80 vers serveur web (192.168.3.2)
+      cisco.ios.ios_config:
+        lines:
+          - ip nat inside source static tcp 192.168.3.2 80 interface GigabitEthernet1 80
+
+    - name: 1.4 PAT port 2222 vers serveur SSH (192.168.4.2)
+      cisco.ios.ios_config:
+        lines:
+          - ip nat inside source static tcp 192.168.4.2 22 interface GigabitEthernet1 2222
+
+    # ── Sauvegarde ──────────────────────────────────────────────────
+    - name: Sauvegarde configuration
+      cisco.ios.ios_config:
+        save_when: always

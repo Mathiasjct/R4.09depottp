@@ -1,0 +1,15 @@
+[csr1000]
+10.185.106.48
+
+[csr1000:vars]
+ansible_user=admin
+ansible_password=admin
+ansible_network_os=cisco.ios.ios
+ansible_connection=network_cli
+ansible_command_timeout=120
+ansible_persistent_command_timeout=120
+ansible_persistent_connect_timeout=60
+ansible_become=yes
+ansible_become_method=enable
+ansible_become_password=admin
+ansible_ssh_common_args=-o KexAlgorithms=+diffie-hellman-group14-sha1 -o HostKeyAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no
